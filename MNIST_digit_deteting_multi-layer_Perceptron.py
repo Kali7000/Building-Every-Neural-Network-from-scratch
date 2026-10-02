@@ -130,36 +130,56 @@ def backpropogation(Z1, A1, A2, W2, X, Y):
 
 ##### Phase 6: Gradient Descent
 
-def gradient_decent(X,Y,Y_labels,lr,epochs):
-    
-    
+def gradient_decent(X, Y, Y_labels, lr, epochs, patience=20, min_delta=1e-4):
+
     W1, B1, W2, B2 = initate_paramaters()
-    
-    
+
+    best_loss = float("inf")
+    best_params = (W1.copy(), B1.copy(), W2.copy(), B2.copy())
+    epochs_without_improvement = 0
+
     for i in range(epochs):
-        
-        #forward_prop
+
+        # forward_prop
         Z1, A1, Z2, A2 = forward_propogation(X, W1, B1, W2, B2)
-        
-        #calculate the gradient
+
+        # loss for this epoch (needed every epoch for early stopping)
+        loss = compute_cross_entropy(Y, A2)
+
+        # ---------- early stopping check ----------
+        if loss < best_loss - min_delta:
+            best_loss = loss
+            best_params = (W1.copy(), B1.copy(), W2.copy(), B2.copy())
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping at epoch {i}: no improvement for {patience} epochs "
+                  f"(best loss {best_loss:.4f})")
+            break
+
+        if np.isnan(loss):
+            print(f"Loss is NaN at epoch {i}, stopping.")
+            break
+        # ------------------------------------------
+
+        # calculate the gradient
         dW1, dB1, dW2, dB2 = backpropogation(Z1, A1, A2, W2, X, Y)
-        
+
         # update the weights and biases
-        W1 = W1 - (lr*dW1)
-        B1 = B1 - (lr*dB1)       
-        W2 = W2 - (lr*dW2)
-        B2 = B2 - (lr*dB2)
-        
-        
-        if i%10 == 0:
-            loss = compute_cross_entropy(Y, A2)
-            predictions  = get_prediction(A2)
+        W1 = W1 - (lr * dW1)
+        B1 = B1 - (lr * dB1)
+        W2 = W2 - (lr * dW2)
+        B2 = B2 - (lr * dB2)
+
+        if i % 10 == 0:
+            predictions = get_prediction(A2)
             accuracy = get_accuracy(predictions, Y_labels)
-            
             print(f"Epoch {i:3} | Loss: {loss:8.4f} | Accuracy: {accuracy * 100:5.2f}%")
-            
-        
-    
+
+    # return the best weights, not necessarily the last ones
+    W1, B1, W2, B2 = best_params
     return W1, B1, W2, B2
     
     
@@ -290,7 +310,7 @@ def run_model():
     
     
     Y =  one_hot_encode(train_labels)
-    LR = 0.01 #learning_rate
+    LR = 0.1 #learning_rate
     epochs = 1000
     
     W1, B1, W2, B2 = gradient_decent(train_images_flattened, Y, train_labels, LR, epochs)
