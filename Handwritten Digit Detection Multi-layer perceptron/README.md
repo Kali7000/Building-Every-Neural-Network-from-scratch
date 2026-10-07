@@ -250,7 +250,3 @@ Building this from scratch surfaced several practical issues that frameworks usu
 - [`idx2numpy`](https://pypi.org/project/idx2numpy/) for reading the IDX file format
 
 ---
-
-## Author
-
-**Kali**
