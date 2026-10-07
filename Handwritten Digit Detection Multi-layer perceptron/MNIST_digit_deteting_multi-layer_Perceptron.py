@@ -286,7 +286,7 @@ def test_model(W1, B1, W2, B2):
 
 
 
-def run_model():
+if __name__ == "__main__":
 
     ## Read the files
     train_images = idx2numpy.convert_from_file('train-images.idx3-ubyte')
@@ -310,7 +310,7 @@ def run_model():
     
     
     Y =  one_hot_encode(train_labels)
-    LR = 0.1 #learning_rate
+    LR = 0.5#learning_rate
     epochs = 1000
     
     W1, B1, W2, B2 = gradient_decent(train_images_flattened, Y, train_labels, LR, epochs)
@@ -318,5 +318,3 @@ def run_model():
     test_model(W1, B1, W2, B2)
     
 
-if __name__ == "__main__":
-    run_model()
