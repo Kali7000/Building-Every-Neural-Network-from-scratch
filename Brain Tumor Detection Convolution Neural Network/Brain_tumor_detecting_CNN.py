@@ -148,7 +148,7 @@ def cnn_2D_feedforward(X_volume, kernals, biases):
                 image_slice = X_volume[:, h : h + kernal_height, w : w + kernal_width]
                 
                 #take the elementwise multiplixation-  sum them, and add the bias
-                Z[k,h,w] = np.sum(image_slice*kernal) + bias
+                Z[k,h,w] = np.sum(image_slice*kernal) + bias[0]
     
     return Z
 
@@ -157,7 +157,7 @@ def cnn_2D_feedforward(X_volume, kernals, biases):
 
 def max_pool(input_volume,pool_size = 2, stride = 2):
     
-    channels, height, width= input_volume.shape()
+    channels, height, width= input_volume.shape
     
     #calculate the dimetionas of the new shrunken fetures
     
@@ -247,9 +247,9 @@ def backprop_max_pooling(dP,A_prev,pool_size = 2, stride = 2):
     return dA_prev
 
 
-def relu_derivative(z):
+def backprop_relu_derivative(z, dA):
     #Returns 1 if Z > 0, otherwise returns 0.
-    return (z>0).astype(float)  ## .astype(float) turns True into 1.0 and False into 0.0
+    return dA*(z>0).astype(float)  ## .astype(float) turns True into 1.0 and False into 0.0
 
 
 
@@ -258,21 +258,72 @@ def backprop_convolution(dZ,A_prev,kernals):
     """
     dZ: The incoming error (e.g., 16 feature maps of error)
     A_prev: The input volume to this layer from the forward pass
-    W: The kernels/weights of this layer
+    kernals: The kernels/weights & bias of this layer
     """
     
+    #get dimetions of the input matrix
+    num_kernels, channels_in, kernal_height, kernal_width = kernals.shape
+    
+    #get dimetions of the output matrix
+    channels_out, output_height, output_width = dZ.shape
+    
+    #create empty matrix the size of the kernals to store calculated weight gradient 
     dW = np.zeros_like(kernals)
-    db = np.zeros((kernals.shape[0],1))
+    #create empty array the length of kernals to store calculated weight gradient
+    dB = np.zeros((num_kernels,1))
+    #create an empty matrix with the dimetions of the input of this layer to store the error and to send it back 
     dA_prev = np.zeros_like(A_prev)
     
     
+    #we loop through all the kernals 
+    for k in range(num_kernels):
+        for h in range(output_height):
+            for w in range(output_width):
+                
+                #isolate the error
+                error = dZ[k,h,w]
+                
+                #calculate the gradient of the bias by saving the sum of errors respective to current karnel
+                dB[k] +=error
+                
+                #retrive the 3D block (input) that was multiplied to the current kernal
+                chunk = A_prev[:, h:h+kernal_height, w:w+kernal_width]
+                
+                #Calulate the kernal gradient by multiplying the chunk(input) by the error 
+                #it's the (error * x) from the weight update rule in sinle layer perceptron w = w - (LR * error * x)
+                dW[k]+= chunk*error
+                
+                #Fill the blame matrix of the input image/feature_map to send to the previous layer
+                #we upadate that chunk by adding the error with respect to the weighth to the pixle coordainates   
+                
+                #if the weight of the unbderlying pixle was high then it gets more blame
+                #if the wegith/kernal was low it get's less blame
+                #that's why we multiply error by the kernal
+                """
+                (Note: Because the sliding windows overlap, a single pixel in the image gets 
+                 blamed multiple times from different overlapping windows. The += correctly 
+                 adds up all the overlapping blame).
+                """
+                dA_prev[:, h:h+kernal_height, w:w+kernal_width] += kernals[k]*error
+                
+                
+    
+    return dW,dB,dA_prev
+    
+    
 
 
 
 
+def compute_cross_entropy(Y, A2):   
+    
+    A2_clipped = np.clip(A2,1e-15 , 1.0 - 1e-15)
+    loss = -np.sum(Y * np.log(A2_clipped)) / Y.shape[0] 
+    return loss
 
 
-def gradient_decent(X,Y,Y_label,epochs):
+
+def gradient_decent(X,Y,epochs,lr):
   
     kernals1, biases1 = init_kernals(8,1) #8 kernals; 1 channel
     # Layer 1 Input: You feed it Grayscale MRIs, which have 1 color channel.
@@ -283,63 +334,130 @@ def gradient_decent(X,Y,Y_label,epochs):
     
     dense_weights, dense_biases = init_dense_weights(3136)
     
-    for i in range(epochs):   
-        #Layer 1
-        Z1 = cnn_2D_feedforward(X, kernals1, biases1) 
+
+        
+    for epoch in range(epochs):
+         correct_gusses = 0
+         total_loss = 0
+         
+         for i in range(len(X)):
+             
+            ##get the image at index i
+            x = X[i][np.newaxis, :, :]  # (1,64,64)
+            
+            ##get the label of that index
+            y = Y[i:i+1]
+            
+            
+            #Layer 1
+            Z1 = cnn_2D_feedforward(x, kernals1, biases1) 
             #Relu activation
-        A1 = np.maximum(0,Z1)      
+            A1 = np.maximum(0,Z1)      
             #Pooling Layer
-        P1 = max_pool(A1)
+            P1 = max_pool(A1)
+            
+            #Layer 2
+            Z2 = cnn_2D_feedforward(P1, kernals2, biases2)
+            #ReLu activation
+            A2 = np.maximum(0,Z2)
+            #maxPool
+            P2 = max_pool(A2)
+     
+            #Layer 3: The dense layer
+            # Bridge: Flatten the 3D block into a 1D array
+            # P2 shape is (16, 14, 14). 16 * 14 * 14 = 3,136 pixels
+            flattend_p2 = P2.flatten().reshape(1,-1)  # Shape becomes (1, 3136)     
+            Z3 = np.dot(flattend_p2,dense_weights)+dense_biases
+            A3 = softmax(Z3)
+            
+            #compute loss
+            total_loss +=compute_cross_entropy(y, A3)
+            correct_gusses += int(np.argmax(A3)==np.argmax(y))
+            
+            
+            
+            #Output error
+            dZ3 = A3 - y
+            
+          
+            
+            ###Backpropogation
+            
+            #Dense layer gradient/Blame
+            dW3 = np.dot(flattend_p2.T,dZ3)
+            dB3 = np.sum(dZ3,axis=0,keepdims=True)
+            
+            #Push error backwords to the flatten layer
+            dFlat = np.dot(dZ3,dense_weights.T)
+            
+            ## Unflatten, reshape the flattend_p2 back to it's 3D metrix shape
+            dP2 = dFlat.reshape(16, 14, 14)
+            
+            
+            
+            ### Convolution Layer 2
+            ## backprop Max pool
+            #This crates a matrix with the dimention of A2 but only the max value of every 2x2 grid*error exists, others are zero
+            dA2 = backprop_max_pooling(dP2, A2)
+            
+            #backprop activation
+            #push error through the relu darivative
+            #keep error if z2>0, otherwise erase because that activation value had no affect on the output
+            dZ2 = backprop_relu_derivative(Z2, dA2)
+            
+            ##Backprop Convolution
+            dKernel2, dBiases2, dP1 = backprop_convolution(dZ2,P1,kernals2)
+            
+            
+            ##Convolution layer 1
+            
+            #backprop maxPool
+            dA1 = backprop_max_pooling(dP1, A1)
+            
+            #Backprop activation
+            dZ1 = backprop_relu_derivative(Z1,dA1)
+            
+            #backprop convolution
+            
+            dKernel1, dBiases1, dX = backprop_convolution(dZ1, x, kernals1)
+            
+            
+            
+            ##UPDATE
+            dense_weights -= lr*dW3
+            dense_biases -= lr*dB3
+            kernals2 -= lr*dKernel2
+            biases2 -= lr*dBiases2
+            kernals1 -= lr*dKernel1
+            biases1 -= lr*dBiases1
         
-        #Layer 2
-        Z2 = cnn_2D_feedforward(P1, kernals2, biases2)
-        A2 = np.maximum(0,Z2)
-        P2 = max_pool(A2)
- 
-        #Layer 3: The dense layer
-        # Bridge: Flatten the 3D block into a 1D array
-        # P2 shape is (16, 14, 14). 16 * 14 * 14 = 3,136 pixels
-        flattend_p2 = P2.flatten().reshape(1,-1)  # Shape becomes (1, 3136)     
-        Z3 = np.dot(flattend_p2,dense_weights)+dense_biases
-        A3 = softmax(Z3)
-        
-        
-        
-        #Output error
-        dZ3 = A3 - Y
-        
-        #Dense layer gradient/Blame
-        dW3 = np.dot(flattend_p2.T,dZ3)
-        dB3 = np.sum(dZ3,axis=0,keepdims=True)
-        
-        #Push error backwords to the flatten layer
-        dFlat = np.dot(dZ3,dense_weights.T)
-        
-        ## Unflatten, reshape the flattend_p2 back to it's 3D metrix shape
-        dP2 = dFlat.reshape(16, 14, 14)
+         print(f"Epoch{epoch+1}: loss {total_loss / len(X):.4f}, Accurecy: {correct_gusses/len(X)}")
+            
+    
+    
+    return kernals1, biases1, kernals2, biases2, dense_weights, dense_biases
+    
     
         
-    
-
         
-        
-        
+  
+       
         
 
 
 
-base_file_path = r"C:\Users\Kali\OneDrive - purdue.edu\Classes\ML\Neural Networks\datasets\Brain Tumor MRI Dataset\Testing"
+base_file_path = r"C:\Users\Kali\OneDrive - purdue.edu\Classes\ML\Neural Networks\datasets\Brain Tumor MRI Dataset\Training"
 resize_images_to = 64        #64x64 pixels
 
 X_train, Y_train = load_and_shuffle(base_file_path, resize_images_to)
 
 Y_train_one_hot = one_hot_encode(Y_train,4)
-#print(Y_train_one_hot[:5])
+#print(Y_train_one_hot[:5]
 
-
-
-epochs = 100
-
+epochs = 50
+subset = 10
+lr = 0.01
+gradient_decent(X_train[:subset], Y_train_one_hot[:subset], epochs,lr)
 
 
 
