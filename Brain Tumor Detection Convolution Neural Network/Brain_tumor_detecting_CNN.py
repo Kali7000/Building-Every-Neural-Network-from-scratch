@@ -442,22 +442,78 @@ def gradient_decent(X,Y,epochs,lr):
         
   
        
+def test_model(test_folder_path, kernals1, biases1, kernals2, biases2, dense_weights, dense_biases):
+    print("LOADING TEST DATA...")
+
+    # Make sure to give it a DIFFERENT cache file name so it doesn't overwrite your training cache
+    X_test, Y_test = load_and_shuffle(test_folder_path, pixl_size=64, cache_file="test_cache.npz")
+    
+    correct_guesses = 0
+    total_images = len(X_test)
+    
+    print(f"\nTesting {total_images} unseen images. Please wait...\n")
+    
+    for i in range(total_images):
         
+        # 1. Grab the single test image and format it to (1, 64, 64)
+        x = X_test[i][np.newaxis, :, :]
+        true_label = Y_test[i]
+        
+        # 2. Forward Pass (No backprop needed for testing!)
+        Z1 = cnn_2D_feedforward(x, kernals1, biases1) 
+        A1 = np.maximum(0, Z1)      
+        P1 = max_pool(A1)
+        
+        Z2 = cnn_2D_feedforward(P1, kernals2, biases2)
+        A2 = np.maximum(0, Z2)
+        P2 = max_pool(A2)
+ 
+        flattend_p2 = P2.flatten().reshape(1, -1)      
+        Z3 = np.dot(flattend_p2, dense_weights) + dense_biases
+        A3 = softmax(Z3)
+        
+        # 3. Check if the network's highest percentage matches the true label
+        predicted_label = int(np.argmax(A3))
+        if predicted_label == true_label:
+            correct_guesses += 1
+            
+        # Print a few examples so we can watch it "think"
+        if i < 5:
+            classes = ["notumor", "pituitary", "meningioma", "glioma"]
+            print(f"Image {i}:")
+            print(f"  True Label: {classes[true_label]}")
+            print(f"  Network Guessed: {classes[predicted_label]}")
+            print(f"  Confidence: {[float(f'{p:.3f}') for p in A3[0]]}\n")
+            
+    # Calculate Final Accuracy
+    accuracy = (correct_guesses / total_images) * 100
+    print("========================================")
+    print(f"FINAL TEST ACCURACY: {accuracy:.2f}%")
+    print("========================================")       
 
 
 
-base_file_path = r"C:\Users\Kali\OneDrive - purdue.edu\Classes\ML\Neural Networks\datasets\Brain Tumor MRI Dataset\Training"
+
+test_file_path = r"C:\Users\Kali\OneDrive - purdue.edu\Classes\ML\Neural Networks\datasets\Brain Tumor MRI Dataset\Testing"
+train_file_path = r"C:\Users\Kali\OneDrive - purdue.edu\Classes\ML\Neural Networks\datasets\Brain Tumor MRI Dataset\Training"
 resize_images_to = 64        #64x64 pixels
 
-X_train, Y_train = load_and_shuffle(base_file_path, resize_images_to)
+X_train, Y_train = load_and_shuffle(train_file_path, resize_images_to,cache_file="train_cache.npz")
 
 Y_train_one_hot = one_hot_encode(Y_train,4)
 #print(Y_train_one_hot[:5]
 
-epochs = 50
-subset = 10
+epochs = 20
+subset = 100
 lr = 0.01
-gradient_decent(X_train[:subset], Y_train_one_hot[:subset], epochs,lr)
+
+# 2. Train the Model
+k1, b1, k2, b2, dw, db = gradient_decent(
+        X_train[:subset], 
+        Y_train_one_hot[:subset], 
+        epochs, 
+        lr
+    )
 
 
 
@@ -465,27 +521,7 @@ gradient_decent(X_train[:subset], Y_train_one_hot[:subset], epochs,lr)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+test_model(test_file_path, k1, b1, k2, b2, dw, db)
 
 
 
