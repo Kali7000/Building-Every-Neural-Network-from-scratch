@@ -46,10 +46,5 @@ Using Mean Squared Error loss $L = \frac{1}{2}(\hat{y} - y)^2$, gradients are ac
 * **Daily Minimum Temperatures in Melbourne (1981–1990):** ~3,650 daily temperature observations.
 * **Task:** Predict Day 11's minimum temperature using the previous 10 days (`window_len = 10`).
 
+![Actual vs Predicted Temperatures](Figure 2026-11-20 011611.png)
 ---
-
-## How to Run
-
-1. **Install dependencies:**
-   ```bash
-   pip install numpy pandas matplotlib
