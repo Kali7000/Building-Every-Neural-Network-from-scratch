@@ -37,7 +37,6 @@ Using Mean Squared Error loss $L = \frac{1}{2}(\hat{y} - y)^2$, gradients are ac
 
 * **Zero Data Leakage:** The time-series is split chronologically (`80% train / 20% test`) *before* min-max normalization. Scaling parameters are fit strictly on the training set.
 * **Safe Initial State Indexing:** Hidden states are cached in a dictionary initialized with `{-1: np.zeros((hidden_size, 1))}` so that `hidden_states[t - 1]` safely resolves at `t = 0` without Python's negative list-indexing bug.
-* **Modular Design:** `VanillaRNN` is decoupled from CSV loading so it can be trained on any 1D sequential dataset (e.g., real-world weather data or synthetic waveforms).
 
 ---
 
@@ -45,6 +44,6 @@ Using Mean Squared Error loss $L = \frac{1}{2}(\hat{y} - y)^2$, gradients are ac
 
 * **Daily Minimum Temperatures in Melbourne (1981–1990):** ~3,650 daily temperature observations.
 * **Task:** Predict Day 11's minimum temperature using the previous 10 days (`window_len = 10`).
-
-![Actual vs Predicted Temperatures](Figure 2026-11-20 011611.png)
+![Actual vs Predicted Temperatures](<Figure 2026-11-20 011611-1.png>)
 ---
+
