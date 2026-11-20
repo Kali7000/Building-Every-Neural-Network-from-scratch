@@ -47,6 +47,6 @@ Using Mean Squared Error loss $L = \frac{1}{2}(\hat{y} - y)^2$, gradients are ac
 * **Hyperparameters:** `hidden_size = 16, window_len = 10, lr = 0.005, epochs = 30`
 * **Test RMSE:** `2.40 °C`
 
-![Actual vs Predicted Temperatures](<Figure 2026-11-20 011611-1.png>)
+![Actual vs Predicted Temperatures](<Figure 2026-11-20 011611.png>)
 ---
 
